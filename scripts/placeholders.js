@@ -23,26 +23,24 @@ export async function fetchPlaceholders(prefix = 'default') {
   if (!window.placeholders[prefix]) {
     window.placeholders[prefix] = new Promise((resolve) => {
       fetch(`${prefix === 'default' ? '' : prefix}/placeholders.json`)
-        .then((resp) => {
-          if (resp.ok) {
-            return resp.json();
-          }
-          return {};
-        }).then((json) => {
+        .then((resp) => (resp.ok ? resp.json() : {}))
+        .then((json) => {
           const placeholders = {};
-          json.data
+          const rows = Array.isArray(json?.data) ? json.data : [];
+          rows
             .filter((placeholder) => placeholder.Key)
             .forEach((placeholder) => {
               placeholders[toCamelCase(placeholder.Key)] = placeholder.Text;
             });
           window.placeholders[prefix] = placeholders;
           resolve(window.placeholders[prefix]);
-        }).catch(() => {
+        })
+        .catch(() => {
           // error loading placeholders
           window.placeholders[prefix] = {};
           resolve(window.placeholders[prefix]);
         });
     });
   }
-  return window.placeholders[`${prefix}`];
+  return window.placeholders[prefix];
 }

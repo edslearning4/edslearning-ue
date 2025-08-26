@@ -20,11 +20,10 @@ function updateActiveSlide(slide) {
 
   const indicators = block.querySelectorAll('.carousel-slide-indicator');
   indicators.forEach((indicator, idx) => {
-    if (idx !== slideIndex) {
-      indicator.querySelector('button').removeAttribute('disabled');
-    } else {
-      indicator.querySelector('button').setAttribute('disabled', 'true');
-    }
+    const btn = indicator.querySelector('button');
+    if (!btn) return;
+    if (idx !== slideIndex) btn.removeAttribute('disabled');
+    else btn.setAttribute('disabled', 'true');
   });
 }
 
@@ -44,19 +43,21 @@ function showSlide(block, slideIndex = 0) {
 
 function bindEvents(block) {
   const slideIndicators = block.querySelector('.carousel-slide-indicators');
-  if (!slideIndicators) return;
-
-  slideIndicators.querySelectorAll('button').forEach((button) => {
-    button.addEventListener('click', (e) => {
-      const slideIndicator = e.currentTarget.parentElement;
-      showSlide(block, parseInt(slideIndicator.dataset.targetSlide, 10));
+  if (slideIndicators) {
+    slideIndicators.querySelectorAll('button').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        const slideIndicator = e.currentTarget.parentElement;
+        showSlide(block, parseInt(slideIndicator.dataset.targetSlide, 10));
+      });
     });
-  });
+  }
 
-  block.querySelector('.slide-prev').addEventListener('click', () => {
+  const prev = block.querySelector('.slide-prev');
+  const next = block.querySelector('.slide-next');
+  if (prev) prev.addEventListener('click', () => {
     showSlide(block, parseInt(block.dataset.activeSlide, 10) - 1);
   });
-  block.querySelector('.slide-next').addEventListener('click', () => {
+  if (next) next.addEventListener('click', () => {
     showSlide(block, parseInt(block.dataset.activeSlide, 10) + 1);
   });
 
@@ -71,19 +72,21 @@ function bindEvents(block) {
   });
 }
 
-function createSlide(row, slideIndex, carouselId) {
+function createSlide(rowLike, slideIndex, carouselId) {
   const slide = document.createElement('li');
   slide.dataset.slideIndex = slideIndex;
   slide.setAttribute('id', `carousel-${carouselId}-slide-${slideIndex}`);
   slide.classList.add('carousel-slide');
 
-  row.querySelectorAll(':scope > div').forEach((column, colIdx) => {
-    // image (col 0) / content (col 1)
+  // Expect 2 columns: [image, content]
+  rowLike.querySelectorAll(':scope > div').forEach((column, colIdx) => {
     column.classList.add(`carousel-slide-${colIdx === 0 ? 'image' : 'content'}`);
 
-    // Apply data-align only on content column
+    // Apply data-align only on the content column
     if (colIdx !== 0) {
       column.classList.add('carousel-slide-content');
+
+      // map UE 'align' value if present on this column
       const alignField = column.querySelector('[data-aue-prop="align"]');
       if (alignField?.textContent) {
         column.setAttribute('data-align', alignField.textContent.trim());
@@ -95,7 +98,10 @@ function createSlide(row, slideIndex, carouselId) {
 
   const labeledBy = slide.querySelector('h1, h2, h3, h4, h5, h6');
   if (labeledBy) {
-    slide.setAttribute('aria-labelledby', labeledBy.getAttribute('id'));
+    if (!labeledBy.id) {
+      labeledBy.id = `carousel-${carouselId}-slide-${slideIndex}-title`;
+    }
+    slide.setAttribute('aria-labelledby', labeledBy.id);
   }
 
   return slide;
@@ -106,7 +112,8 @@ export default async function decorate(block) {
   carouselId += 1;
   block.setAttribute('id', `carousel-${carouselId}`);
 
-  const rows = block.querySelectorAll(':scope > div'); // UE item wrappers
+  // ORIGINAL authored rows (UE item wrappers) – keep them for "+" add button
+  const rows = block.querySelectorAll(':scope > div');
   const isSingleSlide = rows.length < 2;
 
   const placeholders = await fetchPlaceholders();
@@ -137,17 +144,14 @@ export default async function decorate(block) {
       <button type="button" class="slide-prev" aria-label="${placeholders.previousSlide || 'Previous Slide'}"></button>
       <button type="button" class="slide-next" aria-label="${placeholders.nextSlide || 'Next Slide'}"></button>
     `;
-
     container.append(slideNavButtons);
   }
 
+  // Render slides from CLONED rows; keep originals hidden for UE add-target
   rows.forEach((row, idx) => {
-    const slide = createSlide(row, idx, carouselId);
-
-    // Keep UE-authored wrapper so "+" add button remains available
-    while (row.firstChild) row.removeChild(row.firstChild);
-    row.appendChild(slide);
-    slidesWrapper.append(row);
+    const cloned = row.cloneNode(true);
+    const slide = createSlide(cloned, idx, carouselId);
+    slidesWrapper.append(slide);
 
     if (slideIndicators) {
       const indicator = document.createElement('li');
@@ -156,6 +160,9 @@ export default async function decorate(block) {
       indicator.innerHTML = `<button type="button" aria-label="${placeholders.showSlide || 'Show Slide'} ${idx + 1} ${placeholders.of || 'of'} ${rows.length}"></button>`;
       slideIndicators.append(indicator);
     }
+
+    // Keep original row (UE wrapper) so "+" appears; hide it from view
+    row.hidden = true;
   });
 
   container.append(slidesWrapper);
