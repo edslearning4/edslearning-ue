@@ -71,30 +71,27 @@ function bindEvents(block) {
 }
 
 function decorateRowAsSlide(row, idx, carouselId) {
-  // Already decorated? skip
   if (row.classList.contains('carousel-slide')) return;
 
   row.classList.add('carousel-slide');
-  row.dataset.slideIndex = idx.toString();
-  row.id ||= `carousel-${carouselId}-slide-${idx}`;
+  row.dataset.slideIndex = String(idx);
+  if (!row.id) row.id = `carousel-${carouselId}-slide-${idx}`;
 
-  // Identify field wrappers by prop (robust to field order)
+  // Find columns by prop (robust)
   const imageCol = row.querySelector(':scope > [data-aue-prop="image"]') || row.children[0];
   const contentCol = row.querySelector(':scope > [data-aue-prop="content"]') || row.children[1];
-  const alignEl = row.querySelector(':scope > [data-aue-prop="align"]');
+  const alignEl  = row.querySelector(':scope > [data-aue-prop="align"]');
 
   if (imageCol) imageCol.classList.add('carousel-slide-image');
   if (contentCol) {
     contentCol.classList.add('carousel-slide-content');
-    // Map UE align value (string) -> data-align on content column
     const alignVal = alignEl?.textContent?.trim();
     if (alignVal) contentCol.setAttribute('data-align', alignVal);
   }
 
-  // ARIA: label slide by first heading if present
   const labeledBy = row.querySelector('h1, h2, h3, h4, h5, h6');
   if (labeledBy) {
-    if (!labeledBy.id) labeledBy.id = `${row.id || `carousel-${carouselId}-slide-${idx}`}-title`;
+    if (!labeledBy.id) labeledBy.id = `${row.id}-title`;
     row.setAttribute('aria-labelledby', labeledBy.id);
   }
 }
@@ -102,26 +99,26 @@ function decorateRowAsSlide(row, idx, carouselId) {
 let carouselId = 0;
 export default async function decorate(block) {
   carouselId += 1;
-  block.id ||= `carousel-${carouselId}`;
+  if (!block.id) block.id = `carousel-${carouselId}`;
 
-  // Use the UE collection container as the slide track (do NOT remove/move it)
+  // Use the UE collection container as the slide track (do NOT move/modify its children structure)
   const itemsContainer = block.querySelector('[data-aue-prop="items"]');
   if (!itemsContainer) return;
 
-  // Make the collection container double as our track + positioning root
+  // Make block positioned so nav can be absolutely placed relative to it
+  block.style.position = block.style.position || 'relative';
+
+  // Give the items container the track classes (safe)
   itemsContainer.classList.add('carousel-slides', 'carousel-slides-container');
 
-  // Collect item rows (UE wrappers) and decorate them in-place
   const rows = Array.from(itemsContainer.children).filter((n) => n.nodeType === 1);
   const isSingle = rows.length < 2;
 
   const placeholders = await fetchPlaceholders();
-
-  // Region semantics
   block.setAttribute('role', 'region');
   block.setAttribute('aria-roledescription', placeholders.carousel || 'Carousel');
 
-  // Build indicators + nav (don’t wrap/move the items container)
+  // Indicators (outside the items container)
   let slideIndicators;
   if (!isSingle) {
     const slideIndicatorsNav = document.createElement('nav');
@@ -130,20 +127,21 @@ export default async function decorate(block) {
     slideIndicators = document.createElement('ol');
     slideIndicators.classList.add('carousel-slide-indicators');
     slideIndicatorsNav.append(slideIndicators);
-    // put indicators after the items container
+
+    // Place after the items container (sibling), not inside it
     itemsContainer.insertAdjacentElement('afterend', slideIndicatorsNav);
 
+    // Nav buttons (also outside items container, but inside block so CSS absolute works)
     const slideNavButtons = document.createElement('div');
     slideNavButtons.classList.add('carousel-navigation-buttons');
     slideNavButtons.innerHTML = `
       <button type="button" class="slide-prev" aria-label="${placeholders.previousSlide || 'Previous Slide'}"></button>
       <button type="button" class="slide-next" aria-label="${placeholders.nextSlide || 'Next Slide'}"></button>
     `;
-    // Buttons should overlay the track: place them inside the container
-    itemsContainer.append(slideNavButtons);
+    block.append(slideNavButtons);
   }
 
-  // Decorate each UE row as a slide (no cloning, no hiding)
+  // Decorate each UE row as a slide IN-PLACE (no clones/hides/removes)
   rows.forEach((row, idx) => {
     decorateRowAsSlide(row, idx, carouselId);
 
