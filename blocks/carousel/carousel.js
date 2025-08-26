@@ -81,11 +81,9 @@ function createSlide(row, slideIndex, carouselId) {
     // image (col 0) / content (col 1)
     column.classList.add(`carousel-slide-${colIdx === 0 ? 'image' : 'content'}`);
 
-    // map UE 'align' field to data-align on the CONTENT column only
+    // Apply data-align only on content column
     if (colIdx !== 0) {
-      column.classList.add('carousel-slide-content'); // ensure the CSS hook exists
-
-      // map UE 'align' value if present
+      column.classList.add('carousel-slide-content');
       const alignField = column.querySelector('[data-aue-prop="align"]');
       if (alignField?.textContent) {
         column.setAttribute('data-align', alignField.textContent.trim());
@@ -97,8 +95,6 @@ function createSlide(row, slideIndex, carouselId) {
 
   const labeledBy = slide.querySelector('h1, h2, h3, h4, h5, h6');
   if (labeledBy) {
-    // if heading lacks id, you can optionally assign one:
-    // if (!labeledBy.id) labeledBy.id = `carousel-${carouselId}-slide-${slideIndex}-title`;
     slide.setAttribute('aria-labelledby', labeledBy.getAttribute('id'));
   }
 
@@ -110,7 +106,7 @@ export default async function decorate(block) {
   carouselId += 1;
   block.setAttribute('id', `carousel-${carouselId}`);
 
-  const rows = block.querySelectorAll(':scope > div');
+  const rows = block.querySelectorAll(':scope > div'); // UE item wrappers
   const isSingleSlide = rows.length < 2;
 
   const placeholders = await fetchPlaceholders();
@@ -147,7 +143,11 @@ export default async function decorate(block) {
 
   rows.forEach((row, idx) => {
     const slide = createSlide(row, idx, carouselId);
-    slidesWrapper.append(slide);
+
+    // Keep UE-authored wrapper so "+" add button remains available
+    while (row.firstChild) row.removeChild(row.firstChild);
+    row.appendChild(slide);
+    slidesWrapper.append(row);
 
     if (slideIndicators) {
       const indicator = document.createElement('li');
@@ -156,8 +156,6 @@ export default async function decorate(block) {
       indicator.innerHTML = `<button type="button" aria-label="${placeholders.showSlide || 'Show Slide'} ${idx + 1} ${placeholders.of || 'of'} ${rows.length}"></button>`;
       slideIndicators.append(indicator);
     }
-
-    row.remove();
   });
 
   container.append(slidesWrapper);
