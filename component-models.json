@@ -161,6 +161,7 @@
         "name": "summary",
         "label": "Summary",
         "valueType": "string",
+        "placeholder": "Enter summary",
         "required": true
       },
       {
@@ -168,6 +169,7 @@
         "name": "details",
         "label": "Details",
         "valueType": "string",
+        "placeholder": "Enter details",
         "required": true
       }
     ]
