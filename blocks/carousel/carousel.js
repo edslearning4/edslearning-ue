@@ -1,4 +1,4 @@
-/*import { fetchPlaceholders } from '../../scripts/placeholders.js';
+/* import { fetchPlaceholders } from '../../scripts/placeholders.js';
 
 function isAuthoringMode(block) {
   // Heuristic: UE decorates authored elements with data-aue-* attributes.
@@ -169,4 +169,4 @@ export default async function decorate(block) {
 
     bindEvents(block);
   }
-}*/
+} */

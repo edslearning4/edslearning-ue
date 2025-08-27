@@ -18,7 +18,7 @@
       "fragment",
       "teaser",
       "accordion",
-      "carousel"
+      "carousels"
     ]
   },
   {
@@ -37,6 +37,12 @@
     "id": "carousel",
     "components": [
       "carousel-item"
+    ]
+  },
+  {
+    "id": "carousels",
+    "components": [
+      "carousels-item"
     ]
   },
   {
