@@ -73,7 +73,8 @@
             { "name": "Center",  "value": "center" },
             { "name": "Right",   "value": "right" },
             { "name": "Justify", "value": "justify" }
-          ]
+          ],
+          "default": "left"
         }
       ]
     }
