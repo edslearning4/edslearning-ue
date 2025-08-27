@@ -1,5 +1,6 @@
 .carousel {
   position: relative; /* Make the block itself the positioning root for overlay buttons */
+  margin-bottom: 30px;  /* Add this line for separation between blocks */
 }
 
 .carousel [data-aue-prop="align"] {

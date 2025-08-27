@@ -1,3 +1,7 @@
+.accordion {
+  margin-bottom: 30px;  /* Add this line for separation between blocks */
+}
+
 .accordion details {
   border: 1px solid #dadada;
 }
