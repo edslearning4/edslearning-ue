@@ -1,7 +1,13 @@
-// blocks/carousel/carousel.js
 import fetchPlaceholders from '../../scripts/placeholders.js';
 
-/* ---------------- shared helpers ---------------- */
+/* --------- helpers --------- */
+function isAuthoring(block) {
+  return !!(
+    block.closest('[data-aue-resource]') ||
+    block.querySelector('[data-aue-prop]') ||
+    block.matches('[data-aue-filter]')
+  );
+}
 
 function labelSlideForAria(slideEl) {
   const heading = slideEl.querySelector('h1, h2, h3, h4, h5, h6');
@@ -9,24 +15,6 @@ function labelSlideForAria(slideEl) {
     if (!heading.id) heading.id = `${slideEl.id || 'carousel-slide'}-title`;
     slideEl.setAttribute('aria-labelledby', heading.id);
   }
-}
-
-function buildIndicators(block, count, placeholders) {
-  const nav = document.createElement('nav');
-  nav.setAttribute('aria-label', placeholders?.carouselSlideControls || 'Carousel Slide Controls');
-
-  const ol = document.createElement('ol');
-  ol.className = 'carousel-slide-indicators';
-
-  for (let i = 0; i < count; i += 1) {
-    const li = document.createElement('li');
-    li.className = 'carousel-slide-indicator';
-    li.dataset.targetSlide = String(i);
-    li.innerHTML = `<button type="button" aria-label="${(placeholders?.showSlide || 'Show Slide')} ${i + 1} ${(placeholders?.of || 'of')} ${count}"></button>`;
-    ol.append(li);
-  }
-  nav.append(ol);
-  return nav;
 }
 
 function updateActiveSlide(slide) {
@@ -63,11 +51,16 @@ function showSlide(block, toIndex = 0) {
 
   const active = slides[idx];
   active.querySelectorAll('a').forEach((a) => a.removeAttribute('tabindex'));
-  track.scrollTo({ top: 0, left: active.offsetLeft, behavior: 'smooth' });
+  track.scrollTo({
+    top: 0,
+    left: active.offsetLeft,
+    behavior: 'smooth',
+  });
 }
 
 function bindEvents(block) {
-  block.querySelectorAll('.carousel-slide-indicator button').forEach((btn) => {
+  const indButtons = block.querySelectorAll('.carousel-slide-indicator button');
+  indButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const li = e.currentTarget.closest('.carousel-slide-indicator');
       showSlide(block, Number(li?.dataset.targetSlide || 0));
@@ -76,60 +69,55 @@ function bindEvents(block) {
 
   const prev = block.querySelector('.slide-prev');
   const next = block.querySelector('.slide-next');
-  if (prev) prev.addEventListener('click', () => showSlide(block, Number(block.dataset.activeSlide || 0) - 1));
-  if (next) next.addEventListener('click', () => showSlide(block, Number(block.dataset.activeSlide || 0) + 1));
+  if (prev) prev.addEventListener('click', () => {
+    showSlide(block, Number(block.dataset.activeSlide || 0) - 1);
+  });
+  if (next) next.addEventListener('click', () => {
+    showSlide(block, Number(block.dataset.activeSlide || 0) + 1);
+  });
 
-  const io = new IntersectionObserver(
+  const observer = new IntersectionObserver(
     (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target)),
     { threshold: 0.5 },
   );
-  block.querySelectorAll('.carousel-slide').forEach((s) => io.observe(s));
+  block.querySelectorAll('.carousel-slide').forEach((s) => observer.observe(s));
 }
 
-/* ---------------- UE (authoring) path ----------------
-   - Do NOT replace/move/hide UE nodes (so the “+” button stays).
-   - Only add classes/attributes in-place.
-------------------------------------------------------- */
-
+/* --------- AUTHORING (UE) path: decorate in place, no behavior --------- */
 function decorateUE(block, itemsEl, carouselId) {
-  // hook to style horizontally, no structural changes
+  // Track styling hook only; do NOT change structure
   itemsEl.classList.add('carousel-slides');
 
   const rows = Array.from(itemsEl.children).filter((n) => n.nodeType === 1);
   rows.forEach((row, idx) => {
-    // mark row as a slide (no replacing!)
+    // Treat each authored item row as a slide container
     row.classList.add('carousel-slide');
     row.dataset.slideIndex = String(idx);
     if (!row.id) row.id = `carousel-${carouselId}-slide-${idx}`;
 
-    // columns by prop (robust if author reorders)
+    // Field wrappers by prop names; keep them as-is
     const imageCol = row.querySelector(':scope > [data-aue-prop="image"]') || row.children[0];
     const contentCol = row.querySelector(':scope > [data-aue-prop="content"]') || row.children[1];
     const alignEl   = row.querySelector(':scope > [data-aue-prop="align"]');
 
     if (imageCol) imageCol.classList.add('carousel-slide-image');
-
     if (contentCol) {
       contentCol.classList.add('carousel-slide-content');
-      const align = (alignEl?.textContent || 'left').trim().toLowerCase() || 'left';
+      // Render-time default; DO NOT write back to the model
+      const align = (alignEl?.textContent || 'left').trim() || 'left';
       contentCol.setAttribute('data-align', align);
     }
 
     labelSlideForAria(row);
   });
 
-  // IMPORTANT: no indicators/arrows/observers & no aria-hidden in UE.
-  // This keeps all items visible & editable and preserves the + button.
-
+  // In UE: no aria-hidden toggling, no indicators, no prev/next, no observers.
   return rows.length;
 }
 
-/* ---------------- Published path ----------------
-   - Transform direct rows into <ul><li> slides.
-   - Add indicators & nav and wire behavior.
--------------------------------------------------- */
-
+/* --------- PUBLISHED path: rebuild into UL/LIs + controls --------- */
 function createSlideFromRow(rowDiv, idx, carouselId) {
+  // expected: <div> <div>image</div> <div>content</div> <div>align</div> </div>
   const slide = document.createElement('li');
   slide.className = 'carousel-slide';
   slide.dataset.slideIndex = String(idx);
@@ -152,8 +140,8 @@ function createSlideFromRow(rowDiv, idx, carouselId) {
   return slide;
 }
 
-function decoratePublished(block, carouselId, placeholders) {
-  // rows are direct children <div> of the block on publisher
+function decoratePublished(block, carouselId) {
+  // rows are direct child DIVs
   const rowDivs = Array.from(block.children).filter(
     (n) => n.nodeType === 1 && n.tagName.toLowerCase() === 'div',
   );
@@ -167,35 +155,13 @@ function decoratePublished(block, carouselId, placeholders) {
     ul.append(slide);
   });
 
-  // replace block content with track
+  // replace content with the track
   block.innerHTML = '';
   block.append(ul);
-
-  if (rowDivs.length > 1) {
-    // indicators
-    const indicators = buildIndicators(block, rowDivs.length, placeholders);
-    block.append(indicators);
-
-    // nav
-    const navBtns = document.createElement('div');
-    navBtns.className = 'carousel-navigation-buttons';
-    navBtns.innerHTML = `
-      <button type="button" class="slide-prev" aria-label="${placeholders?.previousSlide || 'Previous Slide'}"></button>
-      <button type="button" class="slide-next" aria-label="${placeholders?.nextSlide || 'Next Slide'}"></button>
-    `;
-    block.append(navBtns);
-
-    bindEvents(block);
-  }
-
-  block.dataset.activeSlide = '0';
-  updateActiveSlide(block.querySelector('.carousel-slide'));
-
   return rowDivs.length;
 }
 
-/* ---------------- main ---------------- */
-
+/* --------- main --------- */
 let seq = 0;
 export default async function decorate(block) {
   seq += 1;
@@ -205,12 +171,58 @@ export default async function decorate(block) {
   block.setAttribute('role', 'region');
   block.setAttribute('aria-roledescription', placeholders?.carousel || 'Carousel');
 
-  // If UE collection exists, we’re authoring; otherwise, we’re published.
-  const itemsEl = block.querySelector('[data-aue-prop="items"]');
+  const authoring = isAuthoring(block);
+  let slideCount = 0;
 
-  if (itemsEl) {
-    decorateUE(block, itemsEl, seq);
-  } else {
-    decoratePublished(block, seq, placeholders);
+  if (authoring) {
+    // UE model collection container
+    const itemsEl = block.querySelector('[data-aue-prop="items"]');
+    if (!itemsEl) return; // model not attached yet
+    slideCount = decorateUE(block, itemsEl, seq);
+
+    // Make sure any previous runtime controls are gone in UE
+    block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
+    block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
+    block.removeAttribute('data-active-slide'); // avoid aria-hidden toggling in UE
+    return; // stop here — authoring stays static & fully editable
+  }
+
+  // Published path
+  slideCount = decoratePublished(block, seq);
+
+  // controls (only if >1 slide)
+  block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
+  block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
+
+  if (slideCount > 1) {
+    // indicators
+    const nav = document.createElement('nav');
+    nav.setAttribute('aria-label', placeholders?.carouselSlideControls || 'Carousel Slide Controls');
+
+    const ol = document.createElement('ol');
+    ol.className = 'carousel-slide-indicators';
+    for (let i = 0; i < slideCount; i += 1) {
+      const li = document.createElement('li');
+      li.className = 'carousel-slide-indicator';
+      li.dataset.targetSlide = String(i);
+      li.innerHTML = `<button type="button" aria-label="${(placeholders?.showSlide || 'Show Slide')} ${i + 1} ${(placeholders?.of || 'of')} ${slideCount}"></button>`;
+      ol.append(li);
+    }
+    nav.append(ol);
+    block.append(nav);
+
+    // prev / next
+    const btns = document.createElement('div');
+    btns.className = 'carousel-navigation-buttons';
+    btns.innerHTML = `
+      <button type="button" class="slide-prev" aria-label="${placeholders?.previousSlide || 'Previous Slide'}"></button>
+      <button type="button" class="slide-next" aria-label="${placeholders?.nextSlide || 'Next Slide'}"></button>
+    `;
+    block.append(btns);
+
+    // behavior
+    bindEvents(block);
+    block.dataset.activeSlide = '0';
+    updateActiveSlide(block.querySelector('.carousel-slide'));
   }
 }
