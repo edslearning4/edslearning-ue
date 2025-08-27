@@ -1,7 +1,7 @@
 .carousel {
-  position: relative;          /* positioning root for overlay buttons */
-  margin: 0 auto 30px;         /* center + separation between blocks */
-  max-width: 1200px;           /* match other blocks' width */
+  position: relative;
+  margin: 0 auto 30px;
+  max-width: 1200px;
 }
 
 /* Hide raw align field while keeping UE bindings */
@@ -32,36 +32,34 @@
 .carousel .carousel-slide {
   flex: 0 0 100%;
   scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
   position: relative;
   width: 100%;
-  /* realistic height: grows with viewport but bounded */
-  height: clamp(360px, 60vh, 720px);
+  max-height: 1200px;
+  overflow: hidden;
 }
 
 /* Align content within the slide */
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='center']) {
+  display: flex;
   align-items: center;
 }
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='right']) {
+  display: flex;
   align-items: flex-end;
 }
 
-/* Image fills slide; slight zoom for ~10% crop */
+/* Image fills slide */
 .carousel .carousel-slide .carousel-slide-image picture {
-  position: absolute;
-  inset: 0;
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .carousel .carousel-slide .carousel-slide-image picture > img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-height: 1200px;
   object-fit: cover;
   object-position: center;
-  transform: scale(1.1);           /* gentle crop */
-  transition: transform 0.3s ease; /* smoothen any future effects */
 }
 
 /* Content box */
@@ -71,8 +69,10 @@
   padding: 16px;
   color: white;
   background-color: rgb(19 19 19 / 75%);
-  position: relative;
-  width: var(--slide-content-width, auto);
+  position: absolute;
+  bottom: 40px;
+  left: 40px;
+  max-width: 600px;
 }
 
 /* Indicators */
@@ -112,7 +112,6 @@
   justify-content: space-between;
   z-index: 1;
 }
-/* stylelint-disable-next-line no-descending-specificity */
 .carousel .carousel-navigation-buttons button {
   position: relative;
   width: 44px;
@@ -152,8 +151,7 @@
     right: 24px;
   }
   .carousel .carousel-slide .carousel-slide-content {
-    --slide-content-width: calc((100% - 184px) / 2);
-    margin: 92px;
+    margin: 0 92px;
   }
   .carousel .carousel-slide .carousel-slide-content[data-align='justify'] {
     --slide-content-width: auto;
