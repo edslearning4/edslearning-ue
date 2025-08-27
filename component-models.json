@@ -194,6 +194,62 @@
     ]
   },
   {
+    "id": "carousel",
+    "fields": [
+      {
+        "component": "collection",
+        "name": "items",
+        "label": "Slides",
+        "itemModel": "carousel-item",
+        "required": false
+      }
+    ]
+  },
+  {
+    "id": "carousel-item",
+    "fields": [
+      {
+        "component": "image",
+        "name": "image",
+        "label": "Background Image",
+        "required": true,
+        "placeholder": "Select/upload an image"
+      },
+      {
+        "component": "richtext",
+        "name": "content",
+        "label": "Slide Content",
+        "required": true,
+        "placeholder": "Heading, text, buttons/links…"
+      },
+      {
+        "component": "select",
+        "name": "align",
+        "label": "Content Alignment",
+        "options": [
+          {
+            "label": "Left",
+            "value": "left"
+          },
+          {
+            "label": "Center",
+            "value": "center"
+          },
+          {
+            "label": "Right",
+            "value": "right"
+          },
+          {
+            "label": "Justify (full width)",
+            "value": "justify"
+          }
+        ],
+        "placeholder": "Left (default)",
+        "required": false
+      }
+    ]
+  },
+  {
     "id": "columns",
     "fields": [
       {
