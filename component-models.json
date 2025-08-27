@@ -230,25 +230,19 @@
         "name": "align",
         "label": "Content Alignment",
         "valueType": "string",
-        "options": [
-          {
-            "label": "Left",
-            "value": "left"
-          },
-          {
-            "label": "Center",
-            "value": "center"
-          },
-          {
-            "label": "Right",
-            "value": "right"
-          },
-          {
-            "label": "Justify (full width)",
-            "value": "justify"
-          }
+        "enum": [
+          "left",
+          "center",
+          "right",
+          "justify"
         ],
-        "placeholder": "Left (default)",
+        "enumNames": [
+          "Left",
+          "Center",
+          "Right",
+          "Justify (full width)"
+        ],
+        "defaultValue": "left",
         "required": false
       }
     ]
