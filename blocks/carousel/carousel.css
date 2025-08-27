@@ -1,12 +1,15 @@
 .carousel {
-  position: relative; /* Make the block itself the positioning root for overlay buttons */
-  margin-bottom: 30px;  /* Add this line for separation between blocks */
+  position: relative;          /* positioning root for overlay buttons */
+  margin: 0 auto 30px;         /* center + separation between blocks */
+  max-width: 1200px;           /* match other blocks' width */
 }
 
+/* Hide raw align field while keeping UE bindings */
 .carousel [data-aue-prop="align"] {
-  display: none !important; /* Hide the raw align field in render while keeping UE bindings */
+  display: none !important;
 }
 
+/* Lists */
 .carousel .carousel-slides,
 .carousel .carousel-slide-indicators {
   list-style: none;
@@ -14,17 +17,18 @@
   padding: 0;
 }
 
+/* Track */
 .carousel .carousel-slides {
   display: flex;
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   overflow: scroll clip;
 }
-
 .carousel .carousel-slides::-webkit-scrollbar {
   display: none;
 }
 
+/* Slide */
 .carousel .carousel-slide {
   flex: 0 0 100%;
   scroll-snap-align: start;
@@ -34,28 +38,33 @@
   justify-content: center;
   position: relative;
   width: 100%;
-  min-height: min(50vw, calc(100dvh - var(--header-height)));
+  /* realistic height: grows with viewport but bounded */
+  height: clamp(360px, 60vh, 720px);
 }
 
+/* Align content within the slide */
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='center']) {
   align-items: center;
 }
-
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='right']) {
   align-items: flex-end;
 }
 
+/* Image fills slide; slight zoom for ~10% crop */
 .carousel .carousel-slide .carousel-slide-image picture {
   position: absolute;
   inset: 0;
 }
-
 .carousel .carousel-slide .carousel-slide-image picture > img {
-  height: 100%;
   width: 100%;
+  height: 100%;
   object-fit: cover;
+  object-position: center;
+  transform: scale(1.1);           /* gentle crop */
+  transition: transform 0.3s ease; /* smoothen any future effects */
 }
 
+/* Content box */
 .carousel .carousel-slide .carousel-slide-content {
   z-index: 1;
   margin: 68px;
@@ -66,6 +75,7 @@
   width: var(--slide-content-width, auto);
 }
 
+/* Indicators */
 .carousel .carousel-slide-indicators {
   display: flex;
   flex-wrap: wrap;
@@ -75,7 +85,6 @@
   background-color: var(--light-color);
   line-height: 0;
 }
-
 .carousel .carousel-slide-indicator button {
   width: 24px;
   height: 24px;
@@ -85,13 +94,13 @@
   background-color: #dadada;
   transition: background-color 0.2s;
 }
-
 .carousel .carousel-slide-indicator button:disabled,
 .carousel .carousel-slide-indicator button:hover,
 .carousel .carousel-slide-indicator button:focus-visible {
   background-color: var(--text-color);
 }
 
+/* Prev/Next buttons */
 .carousel .carousel-navigation-buttons {
   position: absolute;
   top: 50%;
@@ -103,7 +112,6 @@
   justify-content: space-between;
   z-index: 1;
 }
-
 /* stylelint-disable-next-line no-descending-specificity */
 .carousel .carousel-navigation-buttons button {
   position: relative;
@@ -115,12 +123,10 @@
   background-color: rgb(19 19 19 / 25%);
   transition: background-color 0.2s;
 }
-
 .carousel .carousel-navigation-buttons button:hover,
 .carousel .carousel-navigation-buttons button:focus-visible {
   background-color: rgb(19 19 19 / 75%);
 }
-
 .carousel .carousel-navigation-buttons button::after {
   display: block;
   content: '';
@@ -134,24 +140,21 @@
   left: calc(50% + 2px);
   transform: translate(-50%, -50%) rotate(-135deg);
 }
-
 .carousel .carousel-navigation-buttons button.slide-next::after {
   transform: translate(-50%, -50%) rotate(45deg);
   left: calc(50% - 2px);
 }
 
+/* Larger screens */
 @media (width >= 600px) {
   .carousel .carousel-navigation-buttons {
     left: 24px;
     right: 24px;
   }
-
   .carousel .carousel-slide .carousel-slide-content {
     --slide-content-width: calc((100% - 184px) / 2);
-
     margin: 92px;
   }
-
   .carousel .carousel-slide .carousel-slide-content[data-align='justify'] {
     --slide-content-width: auto;
   }
