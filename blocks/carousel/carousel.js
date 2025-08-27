@@ -1,5 +1,31 @@
 import fetchPlaceholders from '../../scripts/placeholders.js';
 
+/* --------- autoplay helpers --------- */
+function getAutoplayInterval(block) {
+  const attr = Number(block.getAttribute('data-autoplay-interval'));
+  return Number.isFinite(attr) && attr > 0 ? attr : 3000; // default 3s
+}
+
+function stopAutoplay(block) {
+  if (block._carouselTimer) {
+    clearInterval(block._carouselTimer);
+    block._carouselTimer = null;
+  }
+}
+
+function startAutoplay(block) {
+  if (block.getAttribute('data-autoplay') === 'false') return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  stopAutoplay(block);
+  const interval = getAutoplayInterval(block);
+
+  block._carouselTimer = setInterval(() => {
+    const i = Number(block.dataset.activeSlide || '0');
+    showSlide(block, i + 1);
+  }, interval);
+}
+
 /* --------- helpers --------- */
 function isAuthoring(block) {
   return !!(
@@ -62,18 +88,24 @@ function bindEvents(block) {
   const indButtons = block.querySelectorAll('.carousel-slide-indicator button');
   indButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
+      stopAutoplay(block);
       const li = e.currentTarget.closest('.carousel-slide-indicator');
       showSlide(block, Number(li?.dataset.targetSlide || 0));
+      startAutoplay(block);
     });
   });
 
   const prev = block.querySelector('.slide-prev');
   const next = block.querySelector('.slide-next');
   if (prev) prev.addEventListener('click', () => {
+    stopAutoplay(block);
     showSlide(block, Number(block.dataset.activeSlide || 0) - 1);
+    startAutoplay(block);
   });
   if (next) next.addEventListener('click', () => {
+    stopAutoplay(block);
     showSlide(block, Number(block.dataset.activeSlide || 0) + 1);
+    startAutoplay(block);
   });
 
   const observer = new IntersectionObserver(
@@ -81,29 +113,37 @@ function bindEvents(block) {
     { threshold: 0.5 },
   );
   block.querySelectorAll('.carousel-slide').forEach((s) => observer.observe(s));
+
+  // pause/resume on hover & focus
+  block.addEventListener('mouseenter', () => stopAutoplay(block));
+  block.addEventListener('mouseleave', () => startAutoplay(block));
+  block.addEventListener('focusin', () => stopAutoplay(block));
+  block.addEventListener('focusout', () => startAutoplay(block));
+
+  // pause when tab hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopAutoplay(block);
+    else startAutoplay(block);
+  });
 }
 
-/* --------- AUTHORING (UE) path: decorate in place, no behavior --------- */
+/* --------- AUTHORING (UE) path --------- */
 function decorateUE(block, itemsEl, carouselId) {
-  // Track styling hook only; do NOT change structure
   itemsEl.classList.add('carousel-slides');
 
   const rows = Array.from(itemsEl.children).filter((n) => n.nodeType === 1);
   rows.forEach((row, idx) => {
-    // Treat each authored item row as a slide container
     row.classList.add('carousel-slide');
     row.dataset.slideIndex = String(idx);
     if (!row.id) row.id = `carousel-${carouselId}-slide-${idx}`;
 
-    // Field wrappers by prop names; keep them as-is
     const imageCol = row.querySelector(':scope > [data-aue-prop="image"]') || row.children[0];
     const contentCol = row.querySelector(':scope > [data-aue-prop="content"]') || row.children[1];
-    const alignEl   = row.querySelector(':scope > [data-aue-prop="align"]');
+    const alignEl = row.querySelector(':scope > [data-aue-prop="align"]');
 
     if (imageCol) imageCol.classList.add('carousel-slide-image');
     if (contentCol) {
       contentCol.classList.add('carousel-slide-content');
-      // Render-time default; DO NOT write back to the model
       const align = (alignEl?.textContent || 'left').trim() || 'left';
       contentCol.setAttribute('data-align', align);
     }
@@ -111,13 +151,11 @@ function decorateUE(block, itemsEl, carouselId) {
     labelSlideForAria(row);
   });
 
-  // In UE: no aria-hidden toggling, no indicators, no prev/next, no observers.
   return rows.length;
 }
 
-/* --------- PUBLISHED path: rebuild into UL/LIs + controls --------- */
+/* --------- PUBLISHED path --------- */
 function createSlideFromRow(rowDiv, idx, carouselId) {
-  // expected: <div> <div>image</div> <div>content</div> <div>align</div> </div>
   const slide = document.createElement('li');
   slide.className = 'carousel-slide';
   slide.dataset.slideIndex = String(idx);
@@ -141,7 +179,6 @@ function createSlideFromRow(rowDiv, idx, carouselId) {
 }
 
 function decoratePublished(block, carouselId) {
-  // rows are direct child DIVs
   const rowDivs = Array.from(block.children).filter(
     (n) => n.nodeType === 1 && n.tagName.toLowerCase() === 'div',
   );
@@ -155,7 +192,6 @@ function decoratePublished(block, carouselId) {
     ul.append(slide);
   });
 
-  // replace content with the track
   block.innerHTML = '';
   block.append(ul);
   return rowDivs.length;
@@ -175,27 +211,22 @@ export default async function decorate(block) {
   let slideCount = 0;
 
   if (authoring) {
-    // UE model collection container
     const itemsEl = block.querySelector('[data-aue-prop="items"]');
-    if (!itemsEl) return; // model not attached yet
+    if (!itemsEl) return;
     slideCount = decorateUE(block, itemsEl, seq);
 
-    // Make sure any previous runtime controls are gone in UE
     block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
     block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
-    block.removeAttribute('data-active-slide'); // avoid aria-hidden toggling in UE
-    return; // stop here — authoring stays static & fully editable
+    block.removeAttribute('data-active-slide');
+    return;
   }
 
-  // Published path
   slideCount = decoratePublished(block, seq);
 
-  // controls (only if >1 slide)
   block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
   block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
 
   if (slideCount > 1) {
-    // indicators
     const nav = document.createElement('nav');
     nav.setAttribute('aria-label', placeholders?.carouselSlideControls || 'Carousel Slide Controls');
 
@@ -211,7 +242,6 @@ export default async function decorate(block) {
     nav.append(ol);
     block.append(nav);
 
-    // prev / next
     const btns = document.createElement('div');
     btns.className = 'carousel-navigation-buttons';
     btns.innerHTML = `
@@ -220,9 +250,11 @@ export default async function decorate(block) {
     `;
     block.append(btns);
 
-    // behavior
     bindEvents(block);
     block.dataset.activeSlide = '0';
     updateActiveSlide(block.querySelector('.carousel-slide'));
+
+    // start autoplay (default 3s)
+    startAutoplay(block);
   }
 }
