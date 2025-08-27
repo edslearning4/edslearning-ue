@@ -17,8 +17,7 @@
       "columns",
       "fragment",
       "teaser",
-      "accordion",
-      "carousels"
+      "accordion"
     ]
   },
   {
@@ -31,18 +30,6 @@
     "id": "cards",
     "components": [
       "card"
-    ]
-  },
-  {
-    "id": "carousel",
-    "components": [
-      "carousel-item"
-    ]
-  },
-  {
-    "id": "carousels",
-    "components": [
-      "carousels-item"
     ]
   },
   {
