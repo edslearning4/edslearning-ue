@@ -209,15 +209,18 @@
     "id": "carousel-item",
     "fields": [
       {
-        "component": "image",
+        "component": "reference",
         "name": "image",
         "label": "Background Image",
+        "valueType": "string",
+        "placeholder": "Select/upload an image",
         "required": true,
-        "placeholder": "Select/upload an image"
+        "multi": false
       },
       {
         "component": "richtext",
         "name": "content",
+        "valueType": "string",
         "label": "Slide Content",
         "required": true,
         "placeholder": "Heading, text, buttons/links…"
@@ -226,6 +229,7 @@
         "component": "select",
         "name": "align",
         "label": "Content Alignment",
+        "valueType": "string",
         "options": [
           {
             "label": "Left",
