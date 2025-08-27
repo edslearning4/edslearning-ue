@@ -1,31 +1,26 @@
 import fetchPlaceholders from '../../scripts/placeholders.js';
 
-// --- util: detect UE authoring ---
+// --- detect Universal Editor authoring ---
 function isAuthoring(block) {
-  // Presence of data-aue-* almost certainly means UE
   return !!(block.querySelector('[data-aue-prop]') || block.closest('[data-aue-resource]'));
 }
 
 // ---------------- helpers ----------------
-function updateActiveSlide(slide, authoring = false) {
+function updateActiveSlide(slide) {
   if (!slide) return;
   const block = slide.closest('.carousel');
   const slideIndex = Number(slide.dataset.slideIndex || 0);
   block.dataset.activeSlide = String(slideIndex);
 
   const slides = block.querySelectorAll('.carousel-slide');
-
-  // In authoring mode, DO NOT set aria-hidden/tabindex: UE hides those from the tree.
-  if (!authoring) {
-    slides.forEach((s, i) => {
-      const hidden = i !== slideIndex;
-      s.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-      s.querySelectorAll('a').forEach((a) => {
-        if (hidden) a.setAttribute('tabindex', '-1');
-        else a.removeAttribute('tabindex');
-      });
+  slides.forEach((s, i) => {
+    const hidden = i !== slideIndex;
+    s.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    s.querySelectorAll('a').forEach((a) => {
+      if (hidden) a.setAttribute('tabindex', '-1');
+      else a.removeAttribute('tabindex');
     });
-  }
+  });
 
   const buttons = block.querySelectorAll('.carousel-slide-indicator button');
   buttons.forEach((btn, i) => {
@@ -44,8 +39,6 @@ function showSlide(block, toIndex = 0) {
   if (idx >= slides.length) idx = 0;
 
   const active = slides[idx];
-
-  // Safe even in authoring; no aria-hidden used.
   active.querySelectorAll('a').forEach((a) => a.removeAttribute('tabindex'));
 
   track.scrollTo({
@@ -55,7 +48,7 @@ function showSlide(block, toIndex = 0) {
   });
 }
 
-function bindEvents(block, authoring = false) {
+function bindEvents(block) {
   const indButtons = block.querySelectorAll('.carousel-slide-indicator button');
   indButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -74,7 +67,7 @@ function bindEvents(block, authoring = false) {
   });
 
   const observer = new IntersectionObserver(
-    (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target, authoring)),
+    (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target)),
     { threshold: 0.5 },
   );
   block.querySelectorAll('.carousel-slide').forEach((s) => observer.observe(s));
@@ -90,7 +83,8 @@ function labelSlideForAria(slideEl) {
 
 // ---------------- UE (authoring) path ----------------
 function decorateUE(block, itemsEl, carouselId) {
-  itemsEl.classList.add('carousel-slides'); // just a class hook
+  // DO NOT move/remove children; just add hooks
+  itemsEl.classList.add('carousel-slides');
 
   const rows = Array.from(itemsEl.children).filter((n) => n.nodeType === 1);
   rows.forEach((row, idx) => {
@@ -121,7 +115,7 @@ function decorateUE(block, itemsEl, carouselId) {
 
 // ---------------- Published (no UE wrappers) path ----------------
 function createSlideFromRow(rowDiv, idx, carouselId) {
-  // rowDiv structure: <div> <div>image</div> <div>content</div> <div>align</div> </div>
+  // rowDiv: <div> <div>image</div> <div>content</div> <div>align</div> </div>
   const slide = document.createElement('li');
   slide.className = 'carousel-slide';
   slide.dataset.slideIndex = String(idx);
@@ -174,18 +168,20 @@ export default async function decorate(block) {
   block.setAttribute('role', 'region');
   block.setAttribute('aria-roledescription', placeholders?.carousel || 'Carousel');
 
-  const itemsEl = block.querySelector('[data-aue-prop="items"]');
   const authoring = isAuthoring(block);
+  const itemsEl = block.querySelector('[data-aue-prop="items"]');
 
   let slideCount = 0;
   if (itemsEl) slideCount = decorateUE(block, itemsEl, seq);
   else slideCount = decoratePublished(block, seq);
 
-  // Remove previous controls
+  // Always clean any old controls
   block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
   block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
 
-  if (slideCount > 1) {
+  // IMPORTANT:
+  // Do NOT inject indicators / buttons in authoring.
+  if (!authoring && slideCount > 1) {
     // Indicators
     const nav = document.createElement('nav');
     nav.setAttribute('aria-label', placeholders?.carouselSlideControls || 'Carousel Slide Controls');
@@ -211,9 +207,10 @@ export default async function decorate(block) {
     `;
     block.append(btns);
 
-    bindEvents(block, authoring);
+    bindEvents(block);
   }
 
+  // Initialize (no aria-hidden/tabindex toggling in UE)
   block.dataset.activeSlide = '0';
-  updateActiveSlide(block.querySelector('.carousel-slide'), authoring);
+  if (!authoring) updateActiveSlide(block.querySelector('.carousel-slide'));
 }
