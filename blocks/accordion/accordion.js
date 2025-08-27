@@ -14,7 +14,7 @@ export default function decorate(block) {
   [...block.children].forEach((item) => {
     if (item.querySelector('details.accordion-item')) return;
 
-    const first = item.children[0];  // UE "Summary" element (has data-aue-prop="summary")
+    const first = item.children[0]; // UE "Summary" element (has data-aue-prop="summary")
     const second = item.children[1]; // UE "Details" element (has data-aue-prop="details")
     if (!first || !second) return;
 
