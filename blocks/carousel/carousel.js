@@ -1,6 +1,6 @@
 import fetchPlaceholders from '../../scripts/placeholders.js';
 
-// --- helpers ---
+// ---------------- helpers ----------------
 function updateActiveSlide(slide) {
   if (!slide) return;
   const block = slide.closest('.carousel');
@@ -54,16 +54,12 @@ function bindEvents(block) {
 
   const prev = block.querySelector('.slide-prev');
   const next = block.querySelector('.slide-next');
-  if (prev) {
-    prev.addEventListener('click', () => {
-      showSlide(block, Number(block.dataset.activeSlide || 0) - 1);
-    });
-  }
-  if (next) {
-    next.addEventListener('click', () => {
-      showSlide(block, Number(block.dataset.activeSlide || 0) + 1);
-    });
-  }
+  if (prev) prev.addEventListener('click', () => {
+    showSlide(block, Number(block.dataset.activeSlide || 0) - 1);
+  });
+  if (next) next.addEventListener('click', () => {
+    showSlide(block, Number(block.dataset.activeSlide || 0) + 1);
+  });
 
   const observer = new IntersectionObserver(
     (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target)),
@@ -72,78 +68,131 @@ function bindEvents(block) {
   block.querySelectorAll('.carousel-slide').forEach((s) => observer.observe(s));
 }
 
-function decorateRowAsSlide(row, idx, carouselId) {
-  if (row.classList.contains('carousel-slide')) return;
-
-  row.classList.add('carousel-slide');
-  row.dataset.slideIndex = String(idx);
-  if (!row.id) row.id = `carousel-${carouselId}-slide-${idx}`;
-
-  // Field wrappers (robust even if author reorders fields)
-  const imageCol = row.querySelector(':scope > [data-aue-prop="image"]') || row.children[0];
-  const contentCol = row.querySelector(':scope > [data-aue-prop="content"]') || row.children[1];
-  const alignEl = row.querySelector(':scope > [data-aue-prop="align"]');
-
-  if (imageCol) imageCol.classList.add('carousel-slide-image');
-
-  if (contentCol) {
-    contentCol.classList.add('carousel-slide-content');
-    // Render-time default: left (does not modify authored content)
-    const align = (alignEl?.textContent || 'left').trim() || 'left';
-    contentCol.setAttribute('data-align', align);
-  }
-
-  // ARIA: label slide by first heading if present
-  const labeledBy = row.querySelector('h1, h2, h3, h4, h5, h6');
-  if (labeledBy) {
-    if (!labeledBy.id) labeledBy.id = `${row.id}-title`;
-    row.setAttribute('aria-labelledby', labeledBy.id);
+function labelSlideForAria(slideEl) {
+  const heading = slideEl.querySelector('h1, h2, h3, h4, h5, h6');
+  if (heading) {
+    if (!heading.id) heading.id = `${slideEl.id || 'carousel-slide'}-title`;
+    slideEl.setAttribute('aria-labelledby', heading.id);
   }
 }
 
-// --- main ---
-let carouselSeq = 0;
+// ---------------- UE (authoring) path ----------------
+function decorateUE(block, itemsEl, carouselId) {
+  itemsEl.classList.add('carousel-slides'); // just a class hook
+
+  const rows = Array.from(itemsEl.children).filter((n) => n.nodeType === 1);
+  rows.forEach((row, idx) => {
+    if (!row.classList.contains('carousel-slide')) {
+      row.classList.add('carousel-slide');
+      row.dataset.slideIndex = String(idx);
+      if (!row.id) row.id = `carousel-${carouselId}-slide-${idx}`;
+    }
+
+    const imageCol =
+      row.querySelector(':scope > [data-aue-prop="image"]') || row.children[0];
+    const contentCol =
+      row.querySelector(':scope > [data-aue-prop="content"]') || row.children[1];
+    const alignEl = row.querySelector(':scope > [data-aue-prop="align"]');
+
+    if (imageCol) imageCol.classList.add('carousel-slide-image');
+    if (contentCol) {
+      contentCol.classList.add('carousel-slide-content');
+      const align = (alignEl?.textContent || 'left').trim() || 'left';
+      contentCol.setAttribute('data-align', align);
+    }
+
+    labelSlideForAria(row);
+  });
+
+  return rows.length;
+}
+
+// ---------------- Published (no UE wrappers) path ----------------
+function createSlideFromRow(rowDiv, idx, carouselId) {
+  // rowDiv structure: <div> <div>image</div> <div>content</div> <div>align</div> </div>
+  const slide = document.createElement('li');
+  slide.className = 'carousel-slide';
+  slide.dataset.slideIndex = String(idx);
+  slide.id = `carousel-${carouselId}-slide-${idx}`;
+
+  const cols = rowDiv.querySelectorAll(':scope > div');
+
+  const imgCol = cols[0] || document.createElement('div');
+  imgCol.classList.add('carousel-slide-image');
+
+  const contentCol = cols[1] || document.createElement('div');
+  contentCol.classList.add('carousel-slide-content');
+
+  const alignCol = cols[2];
+  const align = alignCol?.textContent?.trim().toLowerCase() || 'left';
+  contentCol.setAttribute('data-align', align);
+
+  slide.append(imgCol, contentCol);
+  labelSlideForAria(slide);
+  return slide;
+}
+
+function decoratePublished(block, carouselId) {
+  // Gather current rows: direct children of block
+  const rowDivs = Array.from(block.children).filter(
+    (n) => n.nodeType === 1 && n.tagName.toLowerCase() === 'div',
+  );
+  if (!rowDivs.length) return 0;
+
+  // Build track
+  const ul = document.createElement('ul');
+  ul.className = 'carousel-slides';
+
+  rowDivs.forEach((row, idx) => {
+    const slide = createSlideFromRow(row, idx, carouselId);
+    ul.append(slide);
+  });
+
+  // Clear block content and append track
+  block.innerHTML = '';
+  block.append(ul);
+
+  return rowDivs.length;
+}
+
+// ---------------- main ----------------
+let seq = 0;
 export default async function decorate(block) {
-  carouselSeq += 1;
-  if (!block.id) block.id = `carousel-${carouselSeq}`;
+  seq += 1;
+  if (!block.id) block.id = `carousel-${seq}`;
 
-  const items = block.querySelector('[data-aue-prop="items"]');
-  if (!items) return; // model not attached yet
-
-  // Track styling: safe to add a class; do NOT add children into items
-  items.classList.add('carousel-slides');
-
-  // Decorate slides in place
-  const rows = Array.from(items.children).filter((n) => n.nodeType === 1);
-  rows.forEach((row, idx) => decorateRowAsSlide(row, idx, carouselSeq));
-
-  // Semantics
   const placeholders = await fetchPlaceholders().catch(() => ({}));
   block.setAttribute('role', 'region');
   block.setAttribute('aria-roledescription', placeholders?.carousel || 'Carousel');
 
-  // Clean old controls (if re-decorating)
+  // Choose path: UE authoring (has items container) vs published (plain rows)
+  const itemsEl = block.querySelector('[data-aue-prop="items"]');
+  let slideCount = 0;
+  if (itemsEl) slideCount = decorateUE(block, itemsEl, seq);
+  else slideCount = decoratePublished(block, seq);
+
+  // Remove any previous controls
   block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
   block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
 
-  if (rows.length > 1) {
-    // Indicators (sibling of items, but inside block)
+  if (slideCount > 1) {
+    // Indicators
     const nav = document.createElement('nav');
     nav.setAttribute('aria-label', placeholders?.carouselSlideControls || 'Carousel Slide Controls');
 
     const ol = document.createElement('ol');
     ol.className = 'carousel-slide-indicators';
-    rows.forEach((_, idx) => {
+    for (let i = 0; i < slideCount; i += 1) {
       const li = document.createElement('li');
       li.className = 'carousel-slide-indicator';
-      li.dataset.targetSlide = String(idx);
-      li.innerHTML = `<button type="button" aria-label="${(placeholders?.showSlide || 'Show Slide')} ${idx + 1} ${(placeholders?.of || 'of')} ${rows.length}"></button>`;
+      li.dataset.targetSlide = String(i);
+      li.innerHTML = `<button type="button" aria-label="${(placeholders?.showSlide || 'Show Slide')} ${i + 1} ${(placeholders?.of || 'of')} ${slideCount}"></button>`;
       ol.append(li);
-    });
+    }
     nav.append(ol);
     block.append(nav);
 
-    // Prev/Next overlay (inside block, outside items)
+    // Prev/Next overlay
     const btns = document.createElement('div');
     btns.className = 'carousel-navigation-buttons';
     btns.innerHTML = `
@@ -155,7 +204,6 @@ export default async function decorate(block) {
     bindEvents(block);
   }
 
-  // Initialize at first slide (if any)
   block.dataset.activeSlide = '0';
   updateActiveSlide(block.querySelector('.carousel-slide'));
 }
