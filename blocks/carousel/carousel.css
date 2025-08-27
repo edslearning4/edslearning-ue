@@ -1,7 +1,7 @@
 .carousel {
   position: relative;
-  margin: 0 auto 30px;        /* separation between blocks */
-  max-width: 1200px;          /* consistent with other blocks */
+  margin: 0 auto 30px;
+  max-width: 1200px;
 }
 
 /* Hide raw align field while keeping UE bindings */
@@ -34,35 +34,31 @@
   scroll-snap-align: start;
   position: relative;
   width: 100%;
-  max-height: 600px;          /* cap height */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #000;           /* letterbox if aspect ratio mismatches */
+  max-height: 600px;
   overflow: hidden;
 }
 
-/* Align content */
+/* Align content within the slide */
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='center']) {
-  justify-content: center;
+  display: flex;
+  align-items: center;
 }
 .carousel .carousel-slide:has(.carousel-slide-content[data-align='right']) {
-  justify-content: flex-end;
+  display: flex;
+  align-items: flex-end;
 }
 
-/* Image */
+/* Image fills slide */
 .carousel .carousel-slide .carousel-slide-image picture {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 600px;
 }
 .carousel .carousel-slide .carousel-slide-image picture > img {
-  max-width: 100%;
-  max-height: 600px;
-  width: auto;
+  width: 100%;
   height: auto;
-  object-fit: contain;        /* ensure full image is visible */
+  max-height: 1200px;
+  object-fit: cover;
   object-position: center;
 }
 
