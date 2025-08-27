@@ -74,7 +74,7 @@
             { "name": "Right",   "value": "right" },
             { "name": "Justify", "value": "justify" }
           ],
-          "default": "left"
+          "defaultValue": "left"
         }
       ]
     }
