@@ -1,21 +1,31 @@
 import fetchPlaceholders from '../../scripts/placeholders.js';
 
+// --- util: detect UE authoring ---
+function isAuthoring(block) {
+  // Presence of data-aue-* almost certainly means UE
+  return !!(block.querySelector('[data-aue-prop]') || block.closest('[data-aue-resource]'));
+}
+
 // ---------------- helpers ----------------
-function updateActiveSlide(slide) {
+function updateActiveSlide(slide, authoring = false) {
   if (!slide) return;
   const block = slide.closest('.carousel');
   const slideIndex = Number(slide.dataset.slideIndex || 0);
   block.dataset.activeSlide = String(slideIndex);
 
   const slides = block.querySelectorAll('.carousel-slide');
-  slides.forEach((s, i) => {
-    const hidden = i !== slideIndex;
-    s.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-    s.querySelectorAll('a').forEach((a) => {
-      if (hidden) a.setAttribute('tabindex', '-1');
-      else a.removeAttribute('tabindex');
+
+  // In authoring mode, DO NOT set aria-hidden/tabindex: UE hides those from the tree.
+  if (!authoring) {
+    slides.forEach((s, i) => {
+      const hidden = i !== slideIndex;
+      s.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+      s.querySelectorAll('a').forEach((a) => {
+        if (hidden) a.setAttribute('tabindex', '-1');
+        else a.removeAttribute('tabindex');
+      });
     });
-  });
+  }
 
   const buttons = block.querySelectorAll('.carousel-slide-indicator button');
   buttons.forEach((btn, i) => {
@@ -34,6 +44,8 @@ function showSlide(block, toIndex = 0) {
   if (idx >= slides.length) idx = 0;
 
   const active = slides[idx];
+
+  // Safe even in authoring; no aria-hidden used.
   active.querySelectorAll('a').forEach((a) => a.removeAttribute('tabindex'));
 
   track.scrollTo({
@@ -43,7 +55,7 @@ function showSlide(block, toIndex = 0) {
   });
 }
 
-function bindEvents(block) {
+function bindEvents(block, authoring = false) {
   const indButtons = block.querySelectorAll('.carousel-slide-indicator button');
   indButtons.forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -62,7 +74,7 @@ function bindEvents(block) {
   });
 
   const observer = new IntersectionObserver(
-    (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target)),
+    (entries) => entries.forEach((en) => en.isIntersecting && updateActiveSlide(en.target, authoring)),
     { threshold: 0.5 },
   );
   block.querySelectorAll('.carousel-slide').forEach((s) => observer.observe(s));
@@ -133,13 +145,11 @@ function createSlideFromRow(rowDiv, idx, carouselId) {
 }
 
 function decoratePublished(block, carouselId) {
-  // Gather current rows: direct children of block
   const rowDivs = Array.from(block.children).filter(
     (n) => n.nodeType === 1 && n.tagName.toLowerCase() === 'div',
   );
   if (!rowDivs.length) return 0;
 
-  // Build track
   const ul = document.createElement('ul');
   ul.className = 'carousel-slides';
 
@@ -148,7 +158,6 @@ function decoratePublished(block, carouselId) {
     ul.append(slide);
   });
 
-  // Clear block content and append track
   block.innerHTML = '';
   block.append(ul);
 
@@ -165,13 +174,14 @@ export default async function decorate(block) {
   block.setAttribute('role', 'region');
   block.setAttribute('aria-roledescription', placeholders?.carousel || 'Carousel');
 
-  // Choose path: UE authoring (has items container) vs published (plain rows)
   const itemsEl = block.querySelector('[data-aue-prop="items"]');
+  const authoring = isAuthoring(block);
+
   let slideCount = 0;
   if (itemsEl) slideCount = decorateUE(block, itemsEl, seq);
   else slideCount = decoratePublished(block, seq);
 
-  // Remove any previous controls
+  // Remove previous controls
   block.querySelectorAll(':scope > nav[aria-label="Carousel Slide Controls"]').forEach((n) => n.remove());
   block.querySelectorAll(':scope > .carousel-navigation-buttons').forEach((n) => n.remove());
 
@@ -201,9 +211,9 @@ export default async function decorate(block) {
     `;
     block.append(btns);
 
-    bindEvents(block);
+    bindEvents(block, authoring);
   }
 
   block.dataset.activeSlide = '0';
-  updateActiveSlide(block.querySelector('.carousel-slide'));
+  updateActiveSlide(block.querySelector('.carousel-slide'), authoring);
 }
