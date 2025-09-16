@@ -1,16 +1,54 @@
-version: 1
+version: 1   # Version of the query index specification
 
 indices:
-  pages:
+  pages:      # Name of the index (you can have multiple indexes)
     include:
-      - '/**'
+      - '/**'   # Include all pages under the site
     exclude:
-      - '/**.json'
-    target: /query-index.json
+      - '/**.json'   # Exclude JSON renditions (only index HTML pages)
+    target: /query-index.json   # Path where the index JSON will be generated
+
     properties:
-      lastModified:
+      path:   # Path of the page in the site
+        select: none
+        value: path
+
+      lastModified:   # Last modified date of the page (from HTTP headers)
         select: none
         value: parseTimestamp(headers["last-modified"], "ddd, DD MMM YYYY hh:mm:ss GMT")
-      robots:
+
+      robots:   # Robots meta tag (e.g. noindex, nofollow)
         select: head > meta[name="robots"]
+        value: attribute(el, "content")
+
+      title:   # Page title (prefer og:title, fallback to <title>)
+        select: head > meta[property="og:title"], head > title
+        value: attribute(el, "content", textContent(el))
+
+      description:   # Meta description of the page
+        select: head > meta[name="description"]
+        value: attribute(el, "content")
+
+      image:   # Social sharing image (Open Graph image)
+        select: head > meta[property="og:image"]
+        value: attribute(el, "content")
+
+      canonical:   # Canonical URL of the page
+        select: head > link[rel="canonical"]
+        value: attribute(el, "href")
+
+      lang:   # Language of the page (from <html lang="...">)
+        select: html
+        value: attribute(el, "lang")
+
+      publishDate:   # Page publish date (from meta tags)
+        select: head > meta[name="publish-date"], head > meta[property="article:published_time"]
+        value: attribute(el, "content")
+
+      author:   # Author of the page (from meta tags)
+        select: head > meta[name="author"], head > meta[property="article:author"]
+        value: attribute(el, "content")
+
+      tags:   # Tags or categories assigned to the page (article:tag)
+        select: head > meta[property="article:tag"]
         value: attribute(el, "content")
